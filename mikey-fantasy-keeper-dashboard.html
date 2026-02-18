@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keeper Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14; --surface: #13161e; --surface2: #1c2030; --border: #252a3a;
+    --accent: #f5c842; --accent2: #4af0a0; --prospect: #b094ff; --dynasty: #60c8ff;
+    --danger: #ff4f4f; --muted: #5a6380; --text: #e8ecf4; --text2: #9aa3be;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; padding: 32px 24px 140px; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(245,200,66,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(245,200,66,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+  .container { max-width: 1160px; margin: 0 auto; position: relative; z-index: 1; }
+
+  header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 16px; }
+  .title-block h1 { font-family: 'Bebas Neue', sans-serif; font-size: 52px; letter-spacing: 2px; line-height: 1; color: var(--accent); }
+  .title-block p { color: var(--text2); font-size: 13px; margin-top: 4px; font-family: 'DM Mono', monospace; }
+
+  .legend { display: flex; flex-direction: column; gap: 5px; text-align: right; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text2); justify-content: flex-end; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+  .filter-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text2); padding: 7px 16px; border-radius: 6px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; transition: all 0.15s; }
+  .filter-btn:hover, .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(245,200,66,0.06); }
+
+  .counter-pill { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text2); background: var(--surface); border: 1px solid var(--border); padding: 7px 16px; border-radius: 6px; }
+  .counter-pill span.y { color: var(--accent); font-weight: 600; }
+  .counter-pill span.p { color: var(--prospect); font-weight: 600; }
+  .counter-pill span.d { color: var(--dynasty); font-weight: 600; }
+
+  .section-header { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; color: var(--text2); margin: 24px 0 8px; display: flex; align-items: center; gap: 12px; }
+  .section-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .section-sub { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+
+  .players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; margin-bottom: 32px; }
+
+  .player-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: all 0.18s ease; position: relative; overflow: hidden; user-select: none; }
+  .player-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: transparent; transition: background 0.18s; }
+  .player-card:hover { border-color: rgba(245,200,66,0.35); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+  .player-card.sel-keeper { border-color: var(--accent); background: rgba(245,200,66,0.05); }
+  .player-card.sel-keeper::before { background: var(--accent); }
+  .player-card.sel-prospect { border-color: var(--prospect); background: rgba(176,148,255,0.06); }
+  .player-card.sel-prospect::before { background: var(--prospect); }
+  .player-card.sel-dynasty { border-color: var(--dynasty); background: rgba(96,200,255,0.05); }
+  .player-card.sel-dynasty::before { background: var(--dynasty); }
+  .prospect-card:hover { border-color: rgba(176,148,255,0.4) !important; }
+  .dynasty-card:hover { border-color: rgba(96,200,255,0.4) !important; }
+
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+  .player-name { font-size: 15px; font-weight: 600; color: var(--text); }
+  .tags { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
+  .tag { font-family: 'DM Mono', monospace; font-size: 10px; padding: 2px 7px; border-radius: 4px; }
+  .t-pos   { background: rgba(255,255,255,0.07); color: var(--text2); }
+  .t-team  { background: rgba(255,255,255,0.04); color: var(--muted); }
+  .t-act   { background: rgba(74,240,160,0.12); color: #4af0a0; }
+  .t-res   { background: rgba(245,200,66,0.12); color: #f5c842; }
+  .t-ir    { background: rgba(255,79,79,0.12); color: #ff7070; }
+  .t-min   { background: rgba(160,100,255,0.15); color: #c4a0ff; }
+  .t-prosp { background: rgba(176,148,255,0.15); color: var(--prospect); border: 1px solid rgba(176,148,255,0.25); }
+  .t-dyn   { background: rgba(96,200,255,0.12); color: var(--dynasty); border: 1px solid rgba(96,200,255,0.22); }
+
+  .cost-display { text-align: right; flex-shrink: 0; margin-left: 10px; }
+  .cost-round { font-family: 'Bebas Neue', sans-serif; font-size: 28px; line-height: 1; }
+  .cost-label { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); text-transform: uppercase; }
+  .cr1  { color: #ff4f4f; } .cr6  { color: #ff8c42; } .cr11 { color: #f5c842; }
+  .cr16 { color: #a8e063; } .cr21 { color: #4af0a0; } .cr26 { color: #4ab8f0; }
+  .cr-free { color: var(--prospect); } .cr-dyn { color: var(--dynasty); }
+
+  .stats-row { display: flex; gap: 0; flex-wrap: nowrap; padding: 7px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 8px; overflow-x: auto; }
+  .stat-item { display: flex; flex-direction: column; align-items: center; padding: 0 10px; border-right: 1px solid var(--border); flex-shrink: 0; }
+  .stat-item:last-child { border-right: none; }
+  .stat-val { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: var(--text); line-height: 1; }
+  .stat-lbl { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+  .no-stats { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); padding: 7px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 8px; font-style: italic; }
+
+  .card-bottom { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .contract-info { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+  .contract-info strong { color: var(--text2); }
+  .pick-tag { font-family: 'DM Mono', monospace; font-size: 10px; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+  .pick-ok   { background: rgba(74,240,160,0.1); color: var(--accent2); }
+  .pick-no   { background: rgba(255,79,79,0.1); color: #ff7070; }
+  .pick-free { background: rgba(176,148,255,0.12); color: var(--prospect); }
+  .pick-dyn  { background: rgba(96,200,255,0.12); color: var(--dynasty); }
+
+  .summary-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px 24px; margin-top: 8px; position: sticky; bottom: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
+  .summary-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; color: var(--accent); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
+  .summary-grid { display: flex; flex-wrap: wrap; gap: 10px; min-height: 52px; }
+  .s-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; min-width: 148px; }
+  .s-card.s-prosp { border-color: rgba(176,148,255,0.25); }
+  .s-card.s-dyn   { border-color: rgba(96,200,255,0.25); }
+  .s-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .s-round { font-family: 'DM Mono', monospace; font-size: 11px; }
+  .s-pick-info { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .summary-empty { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 13px; align-self: center; }
+  .warnings { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+  .warn   { background: rgba(255,79,79,0.08); border: 1px solid rgba(255,79,79,0.2); border-radius: 6px; padding: 7px 12px; font-family: 'DM Mono', monospace; font-size: 11px; color: #ff8888; }
+  .ok-msg { background: rgba(74,240,160,0.06); border: 1px solid rgba(74,240,160,0.15); border-radius: 6px; padding: 7px 12px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent2); }
+  .clear-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-family: 'DM Mono', monospace; font-size: 11px; transition: all 0.15s; }
+  .clear-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  @media (max-width: 600px) { .title-block h1 { font-size: 36px; } .players-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="title-block">
+      <h1>Keeper Dashboard</h1>
+      <p>FANTRAX FANTASY BASEBALL · 2026 SEASON · ADP FROM FANTRAX CSV</p>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#ff4f4f"></div>Rd 1 · 2026 contract</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ff8c42"></div>Rd 6 · 2027 contract</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f5c842"></div>Rd 11 · 2028 contract</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#a8e063"></div>Rd 16 · 2029 contract</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#4af0a0"></div>Rd 21 · 2030 contract</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#4ab8f0"></div>Rd 26 · 2031+ contract</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#b094ff"></div>FREE · Prospect</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#60c8ff"></div>Rd 26 · Dynasty (Volpe)</div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <button class="filter-btn active" onclick="setFilter('all',this)">All Players</button>
+    <button class="filter-btn" onclick="setFilter('hit',this)">Hitters</button>
+    <button class="filter-btn" onclick="setFilter('pit',this)">Pitchers</button>
+    <button class="filter-btn" onclick="setFilter('act',this)">Active Only</button>
+    <div class="counter-pill">Keepers: <span class="y" id="kCount">0</span> / 7</div>
+    <div class="counter-pill">Prospects: <span class="p" id="pCount">0</span> kept</div>
+    <div class="counter-pill">Dynasty: <span class="d" id="dCount">0</span> / 1</div>
+  </div>
+
+  <div class="section-header">👑 Dynasty Player</div>
+  <div class="section-sub">Costs a Round 26 pick to keep. Only Anthony Volpe qualifies.</div>
+  <div class="players-grid" id="dynasty-grid"></div>
+
+  <div class="section-header">🌱 Prospects</div>
+  <div class="section-sub">Free to keep — no pick cost. Keep as many as you like.</div>
+  <div class="players-grid" id="prospects-grid"></div>
+
+  <div class="section-header" id="h-header">⚾ Hitters</div>
+  <div class="players-grid" id="hitters-grid"></div>
+
+  <div class="section-header" id="p-header">🔥 Pitchers</div>
+  <div class="players-grid" id="pitchers-grid"></div>
+
+  <div class="summary-panel">
+    <div class="summary-title">
+      📋 Keeper Selections
+      <button class="clear-btn" onclick="clearAll()">✕ Clear All</button>
+    </div>
+    <div class="summary-grid" id="summary-grid">
+      <div class="summary-empty">Select players above. Max 7 keepers (pick cost) + free prospects + 1 dynasty.</div>
+    </div>
+    <div class="warnings" id="warnings"></div>
+  </div>
+
+</div>
+<script>
+const PROSPECT_IDS = new Set(['hunter-barco','noble-meyer','robby-snelling','travis-bazzana','jesus-made','carson-benge','spencer-jones','ryan-waldschmidt']);
+const DYNASTY_ID = 'anthony-volpe';
+
+// AVG computed from H/AB in CSV
+const hitters = [
+  { id:'yainer-diaz',      name:'Yainer Diaz',      team:'HOU', pos:'C',   status:'Act', age:27, contract:2031, adp:275.8, stats:{avg:'.257',r:56, rbi:70, sb:1, obp:'.284',slg:'.417',gp:143} },
+  { id:'freddie-freeman',  name:'Freddie Freeman',   team:'LAD', pos:'1B',  status:'Act', age:36, contract:2026, adp:55.8,  stats:{avg:'.295',r:81, rbi:90, sb:6, obp:'.367',slg:'.502',gp:147} },
+  { id:'maikel-garcia',    name:'Maikel Garcia',     team:'KC',  pos:'2B',  status:'Act', age:25, contract:2027, adp:67.6,  stats:{avg:'.286',r:81, rbi:74, sb:23,obp:'.351',slg:'.449',gp:160} },
+  { id:'mark-vientos',     name:'Mark Vientos',      team:'NYM', pos:'3B',  status:'Act', age:26, contract:2031, adp:290.2, stats:{avg:'.233',r:44, rbi:61, sb:1, obp:'.289',slg:'.413',gp:121} },
+  { id:'sal-frelick',      name:'Sal Frelick',       team:'MIL', pos:'OF',  status:'Act', age:25, contract:2031, adp:201.0, stats:{avg:'.288',r:76, rbi:63, sb:19,obp:'.351',slg:'.405',gp:142} },
+  { id:'aaron-judge',      name:'Aaron Judge',       team:'NYY', pos:'OF',  status:'Act', age:33, contract:2026, adp:2.0,   stats:{avg:'.331',r:137,rbi:114,sb:12,obp:'.457',slg:'.688',gp:152} },
+  { id:'steven-kwan',      name:'Steven Kwan',       team:'CLE', pos:'OF',  status:'Act', age:28, contract:2026, adp:137.2, stats:{avg:'.272',r:81, rbi:56, sb:21,obp:'.330',slg:'.374',gp:156} },
+  { id:'caleb-durbin',     name:'Caleb Durbin',      team:'BOS', pos:'UT',  status:'Act', age:25, contract:2031, adp:239.6, stats:{avg:'.256',r:60, rbi:53, sb:18,obp:'.334',slg:'.387',gp:136} },
+  { id:'mickey-moniak',    name:'Mickey Moniak',     team:'COL', pos:'UT',  status:'Act', age:27, contract:2031, adp:260.8, stats:{avg:'.270',r:62, rbi:68, sb:9, obp:'.306',slg:'.518',gp:135} },
+  { id:'cal-raleigh',      name:'Cal Raleigh',       team:'SEA', pos:'C',   status:'Res', age:29, contract:2026, adp:14.4,  stats:{avg:'.247',r:110,rbi:125,sb:14,obp:'.359',slg:'.589',gp:159} },
+  { id:'alec-burleson',    name:'Alec Burleson',     team:'STL', pos:'OF',  status:'Res', age:27, contract:2031, adp:213.2, stats:{avg:'.290',r:54, rbi:69, sb:5, obp:'.343',slg:'.459',gp:139} },
+  { id:'brendan-donovan',  name:'Brendan Donovan',   team:'SEA', pos:'OF',  status:'Res', age:29, contract:2028, adp:248.1, stats:{avg:'.287',r:64, rbi:50, sb:3, obp:'.353',slg:'.422',gp:118} },
+  { id:'gleyber-torres',   name:'Gleyber Torres',    team:'DET', pos:'2B',  status:'Res', age:29, contract:2027, adp:180.1, stats:{avg:'.256',r:79, rbi:74, sb:4, obp:'.358',slg:'.387',gp:145} },
+  { id:'jordan-lawlar',    name:'Jordan Lawlar',     team:'ARI', pos:'SS',  status:'Res', age:23, contract:2040, adp:339.1, stats:{avg:'.182',r:9,  rbi:5,  sb:2, obp:'.257',slg:'.288',gp:28} },
+  { id:'nolan-schanuel',   name:'Nolan Schanuel',    team:'LAA', pos:'1B',  status:'IR',  age:24, contract:2031, adp:295.5, stats:{avg:'.264',r:64, rbi:53, sb:5, obp:'.353',slg:'.389',gp:132} },
+  { id:'zach-neto',        name:'Zach Neto',         team:'LAA', pos:'SS',  status:'IR',  age:25, contract:2029, adp:40.0,  stats:{avg:'.257',r:82, rbi:62, sb:26,obp:'.319',slg:'.474',gp:128} },
+  // Prospects
+  { id:'travis-bazzana',   name:'Travis Bazzana',    team:'CLE', pos:'2B',  status:'Min', age:23, contract:2040, adp:435.9, stats:null },
+  { id:'jesus-made',       name:'Jesus Made',        team:'MIL', pos:'SS',  status:'Min', age:18, contract:2035, adp:475.9, stats:null },
+  { id:'carson-benge',     name:'Carson Benge',      team:'NYM', pos:'OF',  status:'Min', age:23, contract:2031, adp:397.0, stats:null },
+  { id:'spencer-jones',    name:'Spencer Jones',     team:'NYY', pos:'OF',  status:'Min', age:24, contract:2040, adp:456.5, stats:null },
+  { id:'ryan-waldschmidt', name:'Ryan Waldschmidt',  team:'ARI', pos:'OF',  status:'Min', age:23, contract:2031, adp:468.8, stats:null },
+];
+
+const pitchers = [
+  { id:'dylan-cease',       name:'Dylan Cease',        team:'TOR', pos:'SP', status:'Act', age:30, contract:2027, adp:70.3,  stats:{ip:'168',   era:'4.55', kpct:'29.8', svh:0} },
+  { id:'garrett-crochet',   name:'Garrett Crochet',    team:'BOS', pos:'SP', status:'Act', age:26, contract:2029, adp:11.1,  stats:{ip:'205.1', era:'2.59', kpct:'31.3', svh:0} },
+  { id:'clay-holmes',       name:'Clay Holmes',        team:'NYM', pos:'SP', status:'Act', age:32, contract:2028, adp:278.6, stats:{ip:'165.2', era:'3.53', kpct:'18.2', svh:0} },
+  { id:'jacob-misiorowski', name:'Jacob Misiorowski',  team:'MIL', pos:'SP', status:'Act', age:23, contract:2040, adp:98.7,  stats:{ip:'66',    era:'4.36', kpct:'31.9', svh:0} },
+  { id:'pete-fairbanks',    name:'Pete Fairbanks',     team:'MIA', pos:'RP', status:'Act', age:32, contract:2027, adp:233.5, stats:{ip:'60.1',  era:'2.83', kpct:'24.2', svh:27} },
+  { id:'ronny-henriquez',   name:'Ronny Henriquez',    team:'MIA', pos:'RP', status:'Act', age:25, contract:2031, adp:444.7, stats:{ip:'73',    era:'2.22', kpct:'32.3', svh:33} },
+  { id:'emilio-pagan',      name:'Emilio Pagan',       team:'CIN', pos:'RP', status:'Act', age:34, contract:2031, adp:241.7, stats:{ip:'68.2',  era:'2.88', kpct:'30.0', svh:34} },
+  { id:'abner-uribe',       name:'Abner Uribe',        team:'MIL', pos:'RP', status:'Act', age:25, contract:2031, adp:260.9, stats:{ip:'75.1',  era:'1.67', kpct:'30.2', svh:44} },
+  { id:'ryan-walker',       name:'Ryan Walker',        team:'SF',  pos:'RP', status:'Act', age:30, contract:2031, adp:313.1, stats:{ip:'61.1',  era:'4.11', kpct:'22.6', svh:26} },
+  { id:'david-peterson',    name:'David Peterson',     team:'NYM', pos:'SP', status:'Res', age:30, contract:2031, adp:287.7, stats:{ip:'168.2', era:'4.22', kpct:'20.7', svh:0} },
+  { id:'cristopher-sanchez',name:'Cristopher Sanchez', team:'PHI', pos:'SP', status:'Res', age:29, contract:2027, adp:32.5,  stats:{ip:'202',   era:'2.50', kpct:'26.3', svh:0} },
+  { id:'blake-snell',       name:'Blake Snell',        team:'LAD', pos:'SP', status:'Res', age:33, contract:2026, adp:140.4, stats:{ip:'61.1',  era:'2.35', kpct:'28.3', svh:0} },
+  { id:'jason-adam',        name:'Jason Adam',         team:'SD',  pos:'RP', status:'IR',  age:34, contract:2028, adp:490.2, stats:{ip:'65.1',  era:'1.93', kpct:'25.9', svh:29} },
+  { id:'randy-rodriguez',   name:'Randy Rodriguez',    team:'SF',  pos:'RP', status:'IR',  age:26, contract:2031, adp:461.7, stats:{ip:'50.2',  era:'1.78', kpct:'33.8', svh:17} },
+  // Prospects
+  { id:'noble-meyer',       name:'Noble Meyer',        team:'MIA', pos:'SP', status:'Min', age:21, contract:2040, adp:462.3, stats:null },
+  { id:'robby-snelling',    name:'Robby Snelling',     team:'MIA', pos:'SP', status:'Min', age:22, contract:2031, adp:358.0, stats:null },
+  { id:'hunter-barco',      name:'Hunter Barco',       team:'PIT', pos:'RP', status:'Min', age:25, contract:2031, adp:485.9, stats:{ip:'3', era:'0.00', kpct:'25.0', svh:0} },
+];
+
+const dynastyPlayer = { id:'anthony-volpe', name:'Anthony Volpe', team:'NYY', pos:'SS', status:'Act', age:24, contract:2050, adp:339.6, stats:{avg:'.212',r:65,rbi:72,sb:18,obp:'.272',slg:'.391',gp:153} };
+
+const myPicks = { 1:true,2:true,3:true,4:true,6:true,9:true,10:true,11:true,12:true,13:true,14:true,15:true,16:true,17:true,18:true,19:true,20:true,21:true,22:true,23:true,24:true,25:true,26:true };
+const pickDetail = { 1:'1-9 (#9)',2:'2-4 (#16)',3:'3-9 (#33)',4:'4-4 (#40)',6:'6-4 (#64)',9:'9-9 (#105)',10:'10-4 (#112)',11:'11-9 (#129)',12:'12-4 (#136)',13:'13-9 (#153)',14:'14-4 (#160)',15:'15-9 (#177)',16:'16-4 (#184)',17:'17-9 (#201)',18:'18-4 (#208)',19:'19-9 (#225)',20:'20-4 (#232)',21:'21-9 (#249)',22:'22-4 (#256)',23:'23-9 (#273)',24:'24-4 (#280)',25:'25-9 (#297)',26:'26-4 (#304)' };
+
+function getBaseCost(c) {
+  if (c<=2026) return 1; if (c<=2027) return 6; if (c<=2028) return 11;
+  if (c<=2029) return 16; if (c<=2030) return 21; return 26;
+}
+function colorClass(r) {
+  if (r<=1) return 'cr1'; if (r<=6) return 'cr6'; if (r<=11) return 'cr11';
+  if (r<=16) return 'cr16'; if (r<=21) return 'cr21'; return 'cr26';
+}
+function statusClass(s) { return {Act:'t-act',Res:'t-res',IR:'t-ir',Min:'t-min'}[s]||''; }
+function isProspect(id) { return PROSPECT_IDS.has(id); }
+function allRegular() { return [...hitters,...pitchers].filter(p=>!isProspect(p.id)&&p.id!==DYNASTY_ID); }
+function allProspects() { return [...hitters,...pitchers].filter(p=>isProspect(p.id)); }
+
+let selectedKeepers   = new Set();
+let selectedProspects = new Set();
+let dynastyKept       = false;
+let filterMode        = 'all';
+
+function toggleRegular(id) {
+  if (selectedKeepers.has(id)) { selectedKeepers.delete(id); }
+  else {
+    if (selectedKeepers.size>=7) { alert('Max 7 keepers! Deselect one first.'); return; }
+    selectedKeepers.add(id);
+  }
+  render();
+}
+function toggleProspect(id) { if (selectedProspects.has(id)) selectedProspects.delete(id); else selectedProspects.add(id); render(); }
+function toggleDynasty() { dynastyKept=!dynastyKept; render(); }
+function clearAll() { selectedKeepers.clear(); selectedProspects.clear(); dynastyKept=false; render(); }
+function setFilter(f,btn) { filterMode=f; document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); render(); }
+
+function hitStatsHTML(s) {
+  if (!s) return `<div class="no-stats">No 2025 stats available</div>`;
+  return `<div class="stats-row">
+    <div class="stat-item"><div class="stat-val">${s.avg}</div><div class="stat-lbl">AVG</div></div>
+    <div class="stat-item"><div class="stat-val">${s.r}</div><div class="stat-lbl">R</div></div>
+    <div class="stat-item"><div class="stat-val">${s.rbi}</div><div class="stat-lbl">RBI</div></div>
+    <div class="stat-item"><div class="stat-val">${s.sb}</div><div class="stat-lbl">SB</div></div>
+    <div class="stat-item"><div class="stat-val">${s.obp}</div><div class="stat-lbl">OBP</div></div>
+    <div class="stat-item"><div class="stat-val">${s.slg}</div><div class="stat-lbl">SLG</div></div>
+    <div class="stat-item"><div class="stat-val">${s.gp}</div><div class="stat-lbl">GP</div></div>
+  </div>`;
+}
+function pitStatsHTML(s) {
+  if (!s) return `<div class="no-stats">No 2025 stats available</div>`;
+  return `<div class="stats-row">
+    <div class="stat-item"><div class="stat-val">${s.ip}</div><div class="stat-lbl">IP</div></div>
+    <div class="stat-item"><div class="stat-val">${s.era}</div><div class="stat-lbl">ERA</div></div>
+    <div class="stat-item"><div class="stat-val">${s.kpct}%</div><div class="stat-lbl">K%</div></div>
+    ${s.svh>0?`<div class="stat-item"><div class="stat-val">${s.svh}</div><div class="stat-lbl">SVH</div></div>`:''}
+  </div>`;
+}
+
+function keeperCard(p, type) {
+  const base = getBaseCost(p.contract);
+  const isSel = selectedKeepers.has(p.id);
+  const cc = colorClass(base);
+  const hasPick = !!myPicks[base];
+  const pd = pickDetail[base];
+  const pickTag = hasPick
+    ? `<span class="pick-tag pick-ok">✓ Rd ${base}: ${pd}</span>`
+    : `<span class="pick-tag pick-no">✗ No Rd ${base} pick</span>`;
+  const statsHTML = type==='hit' ? hitStatsHTML(p.stats) : pitStatsHTML(p.stats);
+  return `
+    <div class="player-card${isSel?' sel-keeper':''}" onclick="toggleRegular('${p.id}')">
+      <div class="card-top">
+        <div>
+          <div class="player-name">${p.name}</div>
+          <div class="tags">
+            <span class="tag t-pos">${p.pos}</span>
+            <span class="tag t-team">${p.team}</span>
+            <span class="tag ${statusClass(p.status)}">${p.status}</span>
+          </div>
+        </div>
+        <div class="cost-display">
+          <div class="cost-round ${cc}">R${base}</div>
+          <div class="cost-label">base cost</div>
+        </div>
+      </div>
+      ${statsHTML}
+      <div class="card-bottom">
+        <div class="contract-info">Contract: <strong>${p.contract}</strong> · ADP ${p.adp}</div>
+        ${pickTag}
+      </div>
+    </div>`;
+}
+
+function prospectCard(p, type) {
+  const isSel = selectedProspects.has(p.id);
+  const statsHTML = type==='hit' ? hitStatsHTML(p.stats) : pitStatsHTML(p.stats);
+  return `
+    <div class="player-card prospect-card${isSel?' sel-prospect':''}" onclick="toggleProspect('${p.id}')">
+      <div class="card-top">
+        <div>
+          <div class="player-name">${p.name}</div>
+          <div class="tags">
+            <span class="tag t-pos">${p.pos}</span>
+            <span class="tag t-team">${p.team}</span>
+            <span class="tag ${statusClass(p.status)}">${p.status}</span>
+            <span class="tag t-prosp">Prospect</span>
+          </div>
+        </div>
+        <div class="cost-display">
+          <div class="cost-round cr-free">FREE</div>
+          <div class="cost-label">no cost</div>
+        </div>
+      </div>
+      ${statsHTML}
+      <div class="card-bottom">
+        <div class="contract-info">Contract: <strong>${p.contract}</strong> · ADP ${p.adp}</div>
+        <span class="pick-tag pick-free">★ Free keep</span>
+      </div>
+    </div>`;
+}
+
+function dynastyCard() {
+  const p = dynastyPlayer;
+  const dynRound = 26;
+  const hasPick = !!myPicks[dynRound];
+  const pd = pickDetail[dynRound];
+  const pickTag = hasPick
+    ? `<span class="pick-tag pick-dyn">✓ Rd ${dynRound}: ${pd}</span>`
+    : `<span class="pick-tag pick-no">✗ No Rd ${dynRound} pick</span>`;
+  return `
+    <div class="player-card dynasty-card${dynastyKept?' sel-dynasty':''}" onclick="toggleDynasty()">
+      <div class="card-top">
+        <div>
+          <div class="player-name">${p.name}</div>
+          <div class="tags">
+            <span class="tag t-pos">${p.pos}</span>
+            <span class="tag t-team">${p.team}</span>
+            <span class="tag ${statusClass(p.status)}">${p.status}</span>
+            <span class="tag t-dyn">Dynasty</span>
+          </div>
+        </div>
+        <div class="cost-display">
+          <div class="cost-round cr-dyn">R26</div>
+          <div class="cost-label">dynasty cost</div>
+        </div>
+      </div>
+      ${hitStatsHTML(p.stats)}
+      <div class="card-bottom">
+        <div class="contract-info">Contract: <strong>Dynasty (2050)</strong> · ADP ${p.adp}</div>
+        ${pickTag}
+      </div>
+    </div>`;
+}
+
+function render() {
+  const showH = filterMode!=='pit';
+  const showP = filterMode!=='hit';
+  const actOnly = filterMode==='act';
+
+  document.getElementById('dynasty-grid').innerHTML = dynastyCard();
+
+  const prospH = allProspects().filter(p=>hitters.some(h=>h.id===p.id));
+  const prospP = allProspects().filter(p=>pitchers.some(h=>h.id===p.id));
+  let prospHTML = '';
+  if (showH) prospHTML += prospH.map(p=>prospectCard(p,'hit')).join('');
+  if (showP) prospHTML += prospP.map(p=>prospectCard(p,'pit')).join('');
+  document.getElementById('prospects-grid').innerHTML = prospHTML;
+
+  const regH = allRegular().filter(p=>hitters.some(h=>h.id===p.id));
+  const regP = allRegular().filter(p=>pitchers.some(h=>h.id===p.id));
+  const fH = showH?(actOnly?regH.filter(p=>p.status==='Act'):regH):[];
+  const fP = showP?(actOnly?regP.filter(p=>p.status==='Act'):regP):[];
+
+  document.getElementById('h-header').style.display = showH?'':'none';
+  document.getElementById('hitters-grid').style.display = showH?'':'none';
+  document.getElementById('p-header').style.display = showP?'':'none';
+  document.getElementById('pitchers-grid').style.display = showP?'':'none';
+  document.getElementById('hitters-grid').innerHTML = fH.map(p=>keeperCard(p,'hit')).join('');
+  document.getElementById('pitchers-grid').innerHTML = fP.map(p=>keeperCard(p,'pit')).join('');
+
+  document.getElementById('kCount').textContent = selectedKeepers.size;
+  document.getElementById('pCount').textContent = selectedProspects.size;
+  document.getElementById('dCount').textContent = dynastyKept?1:0;
+  updateSummary();
+}
+
+function updateSummary() {
+  const allP = [...hitters,...pitchers];
+  const keepers = allP.filter(p=>selectedKeepers.has(p.id));
+  const prospects = allP.filter(p=>selectedProspects.has(p.id));
+
+  const buckets = {};
+  keepers.forEach(p=>{ const b=getBaseCost(p.contract); if(!buckets[b])buckets[b]=[]; buckets[b].push({player:p,isDynasty:false}); });
+  if (dynastyKept) { if(!buckets[26])buckets[26]=[]; buckets[26].push({player:dynastyPlayer,isDynasty:true}); }
+
+  const assignments = [];
+  Object.entries(buckets).forEach(([base,entries])=>{
+    const b=parseInt(base);
+    entries.forEach((entry,i)=>{
+      const round = b===26 ? 26-i : b+i;
+      assignments.push({player:entry.player, round, isDynasty:entry.isDynasty});
+    });
+  });
+  assignments.sort((a,b)=>a.round-b.round);
+
+  const sg = document.getElementById('summary-grid');
+  const wDiv = document.getElementById('warnings');
+
+  if (assignments.length===0 && prospects.length===0) {
+    sg.innerHTML='<div class="summary-empty">Select players above. Max 7 keepers (pick cost) + free prospects + 1 dynasty.</div>';
+    wDiv.innerHTML=''; return;
+  }
+
+  const warnings = [];
+  let html = '';
+
+  assignments.forEach(({player,round,isDynasty})=>{
+    const hasPick=!!myPicks[round]; const pd=pickDetail[round]; const cc=colorClass(round);
+    if (!hasPick) warnings.push(`⚠ No Round ${round} pick for ${player.name} — you'll need to acquire one.`);
+    const cardClass = isDynasty?'s-card s-dyn':'s-card';
+    const roundLabel = isDynasty?`Round ${round} pick cost <span style="color:var(--dynasty);font-size:9px">👑 DYNASTY</span>`:`Round ${round} pick cost`;
+    html+=`<div class="${cardClass}">
+      <div class="s-name">${player.name}</div>
+      <div class="s-round ${cc}">${roundLabel}</div>
+      <div class="s-pick-info">${hasPick?`✓ ${pd}`:`✗ No Rd ${round} pick`}</div>
+    </div>`;
+  });
+
+  prospects.forEach(p=>{
+    html+=`<div class="s-card s-prosp">
+      <div class="s-name">${p.name}</div>
+      <div class="s-round" style="color:var(--prospect)">Free Prospect Keep</div>
+      <div class="s-pick-info" style="color:var(--prospect)">★ No pick cost</div>
+    </div>`;
+  });
+
+  sg.innerHTML = html;
+
+  let wHtml='';
+  warnings.forEach(w=>{ wHtml+=`<div class="warn">${w}</div>`; });
+  if (warnings.length===0 && (assignments.length>0||prospects.length>0||dynastyKept)) {
+    wHtml=`<div class="ok-msg">✓ All keeper costs are covered by picks you already own in 2026.</div>`;
+  }
+  wDiv.innerHTML = wHtml;
+}
+
+render();
+</script>
+</body>
+</html>
