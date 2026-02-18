@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fantasy Baseball Keeper Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d0f14;--surface:#13161e;--surface2:#1c2030;--border:#252a3a;
+    --accent:#f5c842;--accent2:#4af0a0;--prospect:#b094ff;--dynasty:#60c8ff;
+    --danger:#ff4f4f;--muted:#5a6380;--text:#e8ecf4;--text2:#9aa3be;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(245,200,66,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(245,200,66,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+  /* SETUP */
+  #setup-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 24px;position:relative;z-index:1;}
+  .setup-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;max-width:640px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+  .setup-card h1{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:2px;color:var(--accent);line-height:1;margin-bottom:6px;}
+  .setup-card .subtitle{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);margin-bottom:32px;}
+  .step{margin-bottom:28px;}
+  .step-label{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:var(--text2);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .step-num{background:var(--accent);color:#000;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+  .upload-zone{border:2px dashed var(--border);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:all 0.2s;background:var(--surface2);}
+  .upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:rgba(245,200,66,0.04);}
+  .upload-zone.uploaded{border-color:var(--accent2);border-style:solid;}
+  .upload-zone .upload-icon{font-size:32px;margin-bottom:8px;}
+  .upload-zone p{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);}
+  .upload-zone .file-name{color:var(--accent2);font-weight:500;font-size:13px;margin-top:4px;}
+  #csv-input{display:none;}
+  .text-input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:7px;font-family:'DM Mono',monospace;font-size:12px;outline:none;transition:border 0.15s;}
+  .text-input:focus{border-color:var(--accent);}
+  .text-input::placeholder{color:var(--muted);}
+  textarea.text-input{resize:vertical;min-height:70px;line-height:1.5;}
+  .hint{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:4px;}
+  .toggle-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .toggle-pill{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);cursor:pointer;transition:all 0.15s;user-select:none;}
+  .toggle-pill:hover{border-color:var(--accent);color:var(--accent);}
+  .toggle-pill.prospect-active{background:rgba(176,148,255,0.1);border-color:var(--prospect);color:var(--prospect);}
+  .build-btn{width:100%;background:var(--accent);color:#000;border:none;border-radius:8px;padding:14px;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;cursor:pointer;margin-top:8px;transition:all 0.15s;}
+  .build-btn:hover{background:#ffd60a;transform:translateY(-1px);box-shadow:0 4px 20px rgba(245,200,66,0.3);}
+  .error-msg{background:rgba(255,79,79,0.1);border:1px solid rgba(255,79,79,0.25);border-radius:6px;padding:10px 14px;font-family:'DM Mono',monospace;font-size:11px;color:#ff8888;margin-top:12px;display:none;}
+
+  /* DASHBOARD */
+  #dashboard{display:none;padding:32px 24px 140px;position:relative;z-index:1;}
+  .container{max-width:1160px;margin:0 auto;}
+  header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:16px;}
+  .title-block h1{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:2px;line-height:1;color:var(--accent);}
+  .title-block p{color:var(--text2);font-size:12px;margin-top:4px;font-family:'DM Mono',monospace;}
+  .back-btn{background:transparent;border:1px solid var(--border);color:var(--text2);padding:7px 16px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;font-size:11px;transition:all 0.15s;}
+  .back-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .legend{display:flex;flex-direction:column;gap:4px;text-align:right;}
+  .legend-item{display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);justify-content:flex-end;}
+  .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .controls{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;}
+  .filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--text2);padding:7px 16px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;transition:all 0.15s;}
+  .filter-btn:hover,.filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(245,200,66,0.06);}
+  .counter-pill{font-family:'DM Mono',monospace;font-size:13px;color:var(--text2);background:var(--surface);border:1px solid var(--border);padding:7px 16px;border-radius:6px;}
+  .counter-pill span.y{color:var(--accent);font-weight:600;}
+  .counter-pill span.p{color:var(--prospect);font-weight:600;}
+  .counter-pill span.d{color:var(--dynasty);font-weight:600;}
+  .section-header{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--text2);margin:24px 0 8px;display:flex;align-items:center;gap:12px;}
+  .section-header::after{content:'';flex:1;height:1px;background:var(--border);}
+  .section-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:12px;}
+  .players-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px;margin-bottom:32px;}
+  .player-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all 0.18s ease;position:relative;overflow:hidden;user-select:none;}
+  .player-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent;transition:background 0.18s;}
+  .player-card:hover{border-color:rgba(245,200,66,0.35);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+  .player-card.sel-keeper{border-color:var(--accent);background:rgba(245,200,66,0.05);}
+  .player-card.sel-keeper::before{background:var(--accent);}
+  .player-card.sel-prospect{border-color:var(--prospect);background:rgba(176,148,255,0.06);}
+  .player-card.sel-prospect::before{background:var(--prospect);}
+  .player-card.sel-dynasty{border-color:var(--dynasty);background:rgba(96,200,255,0.05);}
+  .player-card.sel-dynasty::before{background:var(--dynasty);}
+  .player-card.cannot-keep{opacity:0.35;cursor:not-allowed;}
+  .player-card.cannot-keep:hover{transform:none;border-color:var(--border);box-shadow:none;}
+  .card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;}
+  .player-name{font-size:15px;font-weight:600;color:var(--text);}
+  .tags{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;}
+  .tag{font-family:'DM Mono',monospace;font-size:10px;padding:2px 7px;border-radius:4px;}
+  .t-pos{background:rgba(255,255,255,0.07);color:var(--text2);}
+  .t-team{background:rgba(255,255,255,0.04);color:var(--muted);}
+  .t-act{background:rgba(74,240,160,0.12);color:#4af0a0;}
+  .t-res{background:rgba(245,200,66,0.12);color:#f5c842;}
+  .t-ir{background:rgba(255,79,79,0.12);color:#ff7070;}
+  .t-min{background:rgba(160,100,255,0.15);color:#c4a0ff;}
+  .t-prosp{background:rgba(176,148,255,0.15);color:var(--prospect);border:1px solid rgba(176,148,255,0.25);}
+  .t-dyn{background:rgba(96,200,255,0.12);color:var(--dynasty);border:1px solid rgba(96,200,255,0.22);}
+  .t-lock{background:rgba(255,79,79,0.12);color:#ff7070;border:1px solid rgba(255,79,79,0.2);}
+  .cost-display{text-align:right;flex-shrink:0;margin-left:10px;}
+  .cost-round{font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;}
+  .cost-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;}
+  .cr1{color:#ff4f4f;}.cr6{color:#ff8c42;}.cr11{color:#f5c842;}.cr16{color:#a8e063;}.cr21{color:#4af0a0;}.cr26{color:#4ab8f0;}
+  .cr-free{color:var(--prospect);}.cr-dyn{color:var(--dynasty);}.cr-lock{color:#ff4f4f;}
+  .stats-row{display:flex;flex-wrap:nowrap;padding:7px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:8px;overflow-x:auto;}
+  .stat-item{display:flex;flex-direction:column;align-items:center;padding:0 10px;border-right:1px solid var(--border);flex-shrink:0;}
+  .stat-item:last-child{border-right:none;}
+  .stat-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--text);line-height:1;}
+  .stat-lbl{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:2px;}
+  .no-stats{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);padding:7px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:8px;font-style:italic;}
+  .card-bottom{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+  .contract-info{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
+  .contract-info strong{color:var(--text2);}
+  .pick-tag{font-family:'DM Mono',monospace;font-size:10px;padding:2px 8px;border-radius:4px;white-space:nowrap;}
+  .pick-ok{background:rgba(74,240,160,0.1);color:var(--accent2);}
+  .pick-no{background:rgba(255,79,79,0.1);color:#ff7070;}
+  .pick-free{background:rgba(176,148,255,0.12);color:var(--prospect);}
+  .pick-dyn{background:rgba(96,200,255,0.12);color:var(--dynasty);}
+  .pick-lock{background:rgba(255,79,79,0.1);color:#ff7070;}
+  .pick-tbd{background:rgba(90,99,128,0.1);color:var(--muted);}
+  .summary-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-top:8px;position:sticky;bottom:16px;box-shadow:0 8px 40px rgba(0,0,0,0.6);}
+  .summary-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+  .summary-grid{display:flex;flex-wrap:wrap;gap:10px;min-height:48px;}
+  .s-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;min-width:140px;}
+  .s-card.s-prosp{border-color:rgba(176,148,255,0.25);}
+  .s-card.s-dyn{border-color:rgba(96,200,255,0.25);}
+  .s-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;}
+  .s-round{font-family:'DM Mono',monospace;font-size:11px;}
+  .s-pick-info{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:1px;}
+  .summary-empty{color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;align-self:center;}
+  .warnings{display:flex;flex-direction:column;gap:6px;margin-top:12px;}
+  .warn{background:rgba(255,79,79,0.08);border:1px solid rgba(255,79,79,0.2);border-radius:6px;padding:7px 12px;font-family:'DM Mono',monospace;font-size:11px;color:#ff8888;}
+  .ok-msg{background:rgba(74,240,160,0.06);border:1px solid rgba(74,240,160,0.15);border-radius:6px;padding:7px 12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--accent2);}
+  .clear-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;font-size:11px;transition:all 0.15s;}
+  .clear-btn:hover{border-color:var(--danger);color:var(--danger);}
+  @media(max-width:600px){.players-grid{grid-template-columns:1fr;}.setup-card{padding:24px;}}
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <h1>Keeper Builder</h1>
+    <p class="subtitle">FANTRAX FANTASY BASEBALL · UPLOAD YOUR ROSTER CSV TO GET STARTED</p>
+
+    <div class="step">
+      <div class="step-label"><div class="step-num">1</div> Upload Your Fantrax Roster CSV</div>
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('csv-input').click()">
+        <div class="upload-icon">📄</div>
+        <p>Click to upload or drag & drop</p>
+        <p>Fantrax → Roster → Export to CSV</p>
+        <div class="file-name" id="file-name"></div>
+      </div>
+      <input type="file" id="csv-input" accept=".csv">
+    </div>
+
+    <div class="step">
+      <div class="step-label"><div class="step-num">2</div> Team Name</div>
+      <input type="text" class="text-input" id="team-name" placeholder="e.g. The Benchwarmers" maxlength="40">
+    </div>
+
+    <div class="step">
+      <div class="step-label"><div class="step-num">3</div> Dynasty Player <span style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:0">(optional — costs Rd 26)</span></div>
+      <input type="text" class="text-input" id="dynasty-name" placeholder="Enter player name exactly as it appears on your roster">
+    </div>
+
+    <div class="step">
+      <div class="step-label"><div class="step-num">4</div> Prospect Players <span style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:0">(free keeps)</span></div>
+      <div class="hint" style="margin-bottom:8px">Upload your CSV first — minor leaguers (Min status) will be auto-selected. Click any name to toggle on or off.</div>
+      <div class="toggle-row" id="prospect-toggles">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">Upload CSV first to see players</span>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-label"><div class="step-num">5</div> Your 2026 Draft Picks <span style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:0">(optional)</span></div>
+      <textarea class="text-input" id="picks-input" placeholder="Paste your picks, e.g:&#10;1-9 (9), 2-4 (16), 3-9 (33), 4-4 (40), 6-4 (64)&#10;&#10;Leave blank to skip pick verification."></textarea>
+      <div class="hint">Format: Round-Pick (Overall). Rounds not listed are assumed missing.</div>
+    </div>
+
+    <button class="build-btn" onclick="buildDashboard()">⚾ Build My Dashboard</button>
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="container">
+    <header>
+      <div class="title-block">
+        <h1 id="dash-title">Keeper Dashboard</h1>
+        <p id="dash-subtitle">FANTRAX FANTASY BASEBALL · 2026 KEEPER DASHBOARD</p>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:12px">
+        <button class="back-btn" onclick="goBack()">← Edit Setup</button>
+        <div class="legend" id="legend"></div>
+      </div>
+    </header>
+
+    <div class="controls">
+      <button class="filter-btn active" onclick="setFilter('all',this)">All Players</button>
+      <button class="filter-btn" onclick="setFilter('hit',this)">Hitters</button>
+      <button class="filter-btn" onclick="setFilter('pit',this)">Pitchers</button>
+      <button class="filter-btn" onclick="setFilter('act',this)">Active Only</button>
+      <div class="counter-pill">Keepers: <span class="y" id="kCount">0</span> / 7</div>
+      <div class="counter-pill">Prospects: <span class="p" id="pCount">0</span> kept</div>
+      <div class="counter-pill">Dynasty: <span class="d" id="dCount">0</span> / 1</div>
+    </div>
+
+    <div class="section-header" id="h-header">⚾ Hitters</div>
+    <div class="players-grid" id="hitters-grid"></div>
+
+    <div class="section-header" id="p-header">🔥 Pitchers</div>
+    <div class="players-grid" id="pitchers-grid"></div>
+
+    <div id="dynasty-section" style="display:none">
+      <div class="section-header">👑 Dynasty Player</div>
+      <div class="section-sub">Costs a Round 26 pick to keep.</div>
+      <div class="players-grid" id="dynasty-grid"></div>
+    </div>
+
+    <div id="prospect-section" style="display:none">
+      <div class="section-header">🌱 Prospects</div>
+      <div class="section-sub">Free to keep — no pick cost. Keep as many as you like.</div>
+      <div class="players-grid" id="prospects-grid"></div>
+    </div>
+
+    <div class="summary-panel">
+      <div class="summary-title">
+        📋 Keeper Selections
+        <button class="clear-btn" onclick="clearAll()">✕ Clear All</button>
+      </div>
+      <div class="summary-grid" id="summary-grid">
+        <div class="summary-empty">Select players above to build your keeper list.</div>
+      </div>
+      <div class="warnings" id="warnings"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let allHitters=[],allPitchers=[],dynastyPlayer=null;
+let prospectIds=new Set(),myPicks={},pickDetail={};
+let selectedKeepers=new Set(),selectedProspects=new Set(),dynastyKept=false;
+let filterMode='all',parsedPlayers=[];
+
+// CSV upload
+document.getElementById('csv-input').addEventListener('change',e=>{const f=e.target.files[0];if(f)loadCSV(f);});
+const zone=document.getElementById('upload-zone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('dragover');});
+zone.addEventListener('dragleave',()=>zone.classList.remove('dragover'));
+zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)loadCSV(f);});
+
+function loadCSV(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const players=parseFantraxCSV(e.target.result);
+      parsedPlayers=players;
+      document.getElementById('file-name').textContent='✓ '+file.name;
+      document.getElementById('upload-zone').classList.add('uploaded');
+      buildProspectToggles(players);
+    }catch(err){showError('Could not parse CSV: '+err.message);}
+  };
+  reader.readAsText(file);
+}
+
+function parseFantraxCSV(text){
+  const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
+  const players=[];
+  let mode=null,headers=[];
+  for(let line of lines){
+    const cols=line.split('","').map(c=>c.replace(/^"|"$/g,'').trim());
+    if(cols[1]==='Hitting'){mode='hit';headers=[];continue;}
+    if(cols[1]==='Pitching'){mode='pit';headers=[];continue;}
+    if(!mode)continue;
+    if(cols[1]==='Pos'||cols[0]==='ID'){headers=cols;continue;}
+    if(!headers.length)continue;
+    const get=key=>{const i=headers.indexOf(key);return i>=0?cols[i]:'';};
+    const name=get('Player');
+    if(!name)continue;
+    const contract=parseInt(get('Contract'))||2031;
+    const adp=parseFloat(get('Average draft position among all leagues on Fantrax'))||999;
+    let stats=null;
+    if(mode==='hit'){
+      const hab=get('H/AB'),parts=hab?hab.split('/'):[];
+      const h=parseInt(parts[0])||0,ab=parseInt(parts[1])||0;
+      const avg=ab>0?'.'+String(Math.round(h/ab*1000)).padStart(3,'0'):'—';
+      const r=get('R'),rbi=get('RBI'),sb=get('SB'),obp=get('OBP'),slg=get('SLG'),gp=get('GP');
+      if(ab>0||parseInt(r)>0) stats={avg,r:parseInt(r)||0,rbi:parseInt(rbi)||0,sb:parseInt(sb)||0,obp,slg,gp:parseInt(gp)||0};
+    } else {
+      const ip=get('IP'),era=get('ERA'),kpct=get('K/BF%'),svh=get('SVH');
+      if(parseFloat(ip)>0) stats={ip,era,kpct:parseFloat(kpct)||0,svh:parseInt(svh)||0};
+    }
+    players.push({
+      id:name.toLowerCase().replace(/[^a-z0-9]/g,'-'),
+      name,team:get('Team'),pos:get('Pos'),status:get('Status'),
+      age:parseInt(get('Age'))||0,contract,adp,type:mode,stats,
+      cannotKeep:contract<=2025,isDynastyEligible:contract>=2050
+    });
+  }
+  return players;
+}
+
+function buildProspectToggles(players){
+  const container=document.getElementById('prospect-toggles');
+  container.innerHTML='';
+  const hint=document.createElement('div');
+  hint.style.cssText='font-family:"DM Mono",monospace;font-size:10px;color:var(--muted);margin-bottom:6px;width:100%';
+  hint.textContent='Minor leaguers (Min) are pre-selected. Click to toggle any player on or off.';
+  container.appendChild(hint);
+  players.forEach(p=>{
+    const pill=document.createElement('div');
+    pill.className='toggle-pill';
+    pill.textContent=p.name;
+    pill.dataset.id=p.id;
+    if(p.status==='Min') pill.classList.add('prospect-active');
+    pill.onclick=()=>pill.classList.toggle('prospect-active');
+    container.appendChild(pill);
+  });
+}
+
+function parsePicks(text){
+  const picks={},details={};
+  if(!text.trim())return{picks,details};
+  const regex=/(\d+)-(\d+)\s*\((\d+)\)/g;
+  let m;
+  while((m=regex.exec(text))!==null){
+    const round=parseInt(m[1]);
+    picks[round]=true;
+    details[round]=`${round}-${m[2]} (#${m[3]})`;
+  }
+  return{picks,details};
+}
+
+function buildDashboard(){
+  document.getElementById('error-msg').style.display='none';
+  if(!parsedPlayers.length){showError('Please upload your Fantrax CSV first.');return;}
+  const teamName=document.getElementById('team-name').value.trim()||'My Team';
+  const dynastyName=document.getElementById('dynasty-name').value.trim().toLowerCase();
+  const {picks,details}=parsePicks(document.getElementById('picks-input').value);
+  myPicks=picks;pickDetail=details;
+  prospectIds=new Set();
+  document.querySelectorAll('#prospect-toggles .toggle-pill.prospect-active').forEach(p=>prospectIds.add(p.dataset.id));
+  dynastyPlayer=null;allHitters=[];allPitchers=[];
+  parsedPlayers.forEach(p=>{
+    if(dynastyName&&p.name.toLowerCase().includes(dynastyName)&&p.isDynastyEligible){dynastyPlayer=p;return;}
+    if(p.type==='hit')allHitters.push(p);else allPitchers.push(p);
+  });
+  selectedKeepers.clear();selectedProspects.clear();dynastyKept=false;filterMode='all';
+  document.getElementById('dash-title').textContent=teamName;
+  buildLegend();
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('dashboard').style.display='block';
+  document.getElementById('dynasty-section').style.display=dynastyPlayer?'':'none';
+  document.getElementById('prospect-section').style.display=prospectIds.size>0?'':'none';
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.filter-btn').classList.add('active');
+  render();
+}
+
+function buildLegend(){
+  const items=[['#ff4f4f','Rd 1 · 2026'],['#ff8c42','Rd 6 · 2027'],['#f5c842','Rd 11 · 2028'],['#a8e063','Rd 16 · 2029'],['#4af0a0','Rd 21 · 2030'],['#4ab8f0','Rd 26 · 2031+'],['#b094ff','FREE · Prospect']];
+  if(dynastyPlayer)items.push(['#60c8ff',`Rd 26 · Dynasty`]);
+  document.getElementById('legend').innerHTML=items.map(([c,l])=>`<div class="legend-item"><div class="legend-dot" style="background:${c}"></div>${l}</div>`).join('');
+}
+function goBack(){document.getElementById('dashboard').style.display='none';document.getElementById('setup-screen').style.display='flex';}
+function showError(msg){const el=document.getElementById('error-msg');el.textContent=msg;el.style.display='block';}
+function getBaseCost(c){if(c<=2026)return 1;if(c<=2027)return 6;if(c<=2028)return 11;if(c<=2029)return 16;if(c<=2030)return 21;return 26;}
+function colorClass(r){if(r<=1)return 'cr1';if(r<=6)return 'cr6';if(r<=11)return 'cr11';if(r<=16)return 'cr16';if(r<=21)return 'cr21';return 'cr26';}
+function statusClass(s){return{Act:'t-act',Res:'t-res',IR:'t-ir',Min:'t-min'}[s]||'';}
+function regularPlayers(list){return list.filter(p=>!prospectIds.has(p.id));}
+function prospectPlayers(list){return list.filter(p=>prospectIds.has(p.id));}
+function toggleRegular(id){
+  const p=[...allHitters,...allPitchers].find(x=>x.id===id);
+  if(!p||p.cannotKeep)return;
+  if(selectedKeepers.has(id))selectedKeepers.delete(id);
+  else{if(selectedKeepers.size>=7){alert('Max 7 keepers!');return;}selectedKeepers.add(id);}
+  render();
+}
+function toggleProspect(id){if(selectedProspects.has(id))selectedProspects.delete(id);else selectedProspects.add(id);render();}
+function toggleDynasty(){dynastyKept=!dynastyKept;render();}
+function clearAll(){selectedKeepers.clear();selectedProspects.clear();dynastyKept=false;render();}
+function setFilter(f,btn){filterMode=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();}
+
+function hitStatsHTML(s){
+  if(!s)return`<div class="no-stats">No 2025 stats available</div>`;
+  return`<div class="stats-row">
+    <div class="stat-item"><div class="stat-val">${s.avg}</div><div class="stat-lbl">AVG</div></div>
+    <div class="stat-item"><div class="stat-val">${s.r}</div><div class="stat-lbl">R</div></div>
+    <div class="stat-item"><div class="stat-val">${s.rbi}</div><div class="stat-lbl">RBI</div></div>
+    <div class="stat-item"><div class="stat-val">${s.sb}</div><div class="stat-lbl">SB</div></div>
+    <div class="stat-item"><div class="stat-val">${s.obp}</div><div class="stat-lbl">OBP</div></div>
+    <div class="stat-item"><div class="stat-val">${s.slg}</div><div class="stat-lbl">SLG</div></div>
+    <div class="stat-item"><div class="stat-val">${s.gp}</div><div class="stat-lbl">GP</div></div>
+  </div>`;
+}
+function pitStatsHTML(s){
+  if(!s)return`<div class="no-stats">No 2025 stats available</div>`;
+  return`<div class="stats-row">
+    <div class="stat-item"><div class="stat-val">${s.ip}</div><div class="stat-lbl">IP</div></div>
+    <div class="stat-item"><div class="stat-val">${s.era}</div><div class="stat-lbl">ERA</div></div>
+    <div class="stat-item"><div class="stat-val">${s.kpct}%</div><div class="stat-lbl">K%</div></div>
+    ${s.svh>0?`<div class="stat-item"><div class="stat-val">${s.svh}</div><div class="stat-lbl">SVH</div></div>`:''}
+  </div>`;
+}
+
+function keeperCard(p){
+  const locked=p.cannotKeep,base=getBaseCost(p.contract),isSel=selectedKeepers.has(p.id);
+  const cc=colorClass(base),hasPick=!!myPicks[base],pd=pickDetail[base],pl=Object.keys(myPicks).length>0;
+  const statsHTML=p.type==='hit'?hitStatsHTML(p.stats):pitStatsHTML(p.stats);
+  const pickTag=locked?`<span class="pick-tag pick-lock">🔒 Cannot keep</span>`
+    :!pl?`<span class="pick-tag pick-tbd">Rd ${base} (picks TBD)</span>`
+    :hasPick?`<span class="pick-tag pick-ok">✓ Rd ${base}${pd?' · '+pd:''}</span>`
+    :`<span class="pick-tag pick-no">✗ No Rd ${base} pick</span>`;
+  return`<div class="player-card${isSel?' sel-keeper':''}${locked?' cannot-keep':''}" onclick="toggleRegular('${p.id}')">
+    <div class="card-top"><div><div class="player-name">${p.name}</div>
+    <div class="tags"><span class="tag t-pos">${p.pos}</span><span class="tag t-team">${p.team}</span>
+    <span class="tag ${statusClass(p.status)}">${p.status}</span>${locked?'<span class="tag t-lock">🔒 Cannot Keep</span>':''}</div></div>
+    <div class="cost-display"><div class="cost-round ${locked?'cr-lock':cc}">${locked?'N/A':'R'+base}</div>
+    <div class="cost-label">${locked?'cannot keep':'base cost'}</div></div></div>
+    ${statsHTML}
+    <div class="card-bottom"><div class="contract-info">Contract: <strong>${locked?'Expired':p.contract}</strong> · ADP ${p.adp.toFixed(1)}</div>${pickTag}</div>
+  </div>`;
+}
+
+function prospectCard(p){
+  const isSel=selectedProspects.has(p.id);
+  const statsHTML=p.type==='hit'?hitStatsHTML(p.stats):pitStatsHTML(p.stats);
+  return`<div class="player-card prospect-card${isSel?' sel-prospect':''}" onclick="toggleProspect('${p.id}')">
+    <div class="card-top"><div><div class="player-name">${p.name}</div>
+    <div class="tags"><span class="tag t-pos">${p.pos}</span><span class="tag t-team">${p.team}</span>
+    <span class="tag ${statusClass(p.status)}">${p.status}</span><span class="tag t-prosp">Prospect</span></div></div>
+    <div class="cost-display"><div class="cost-round cr-free">FREE</div><div class="cost-label">no cost</div></div></div>
+    ${statsHTML}
+    <div class="card-bottom"><div class="contract-info">Contract: <strong>${p.contract}</strong> · ADP ${p.adp.toFixed(1)}</div>
+    <span class="pick-tag pick-free">★ Free keep</span></div>
+  </div>`;
+}
+
+function dynastyCardHTML(){
+  const p=dynastyPlayer,dynRound=26,hasPick=!!myPicks[dynRound],pd=pickDetail[dynRound],pl=Object.keys(myPicks).length>0;
+  const statsHTML=p.type==='hit'?hitStatsHTML(p.stats):pitStatsHTML(p.stats);
+  const pickTag=!pl?`<span class="pick-tag pick-tbd">Rd ${dynRound} (picks TBD)</span>`
+    :hasPick?`<span class="pick-tag pick-dyn">✓ Rd ${dynRound}${pd?' · '+pd:''}</span>`
+    :`<span class="pick-tag pick-no">✗ No Rd ${dynRound} pick</span>`;
+  return`<div class="player-card dynasty-card${dynastyKept?' sel-dynasty':''}" onclick="toggleDynasty()">
+    <div class="card-top"><div><div class="player-name">${p.name}</div>
+    <div class="tags"><span class="tag t-pos">${p.pos}</span><span class="tag t-team">${p.team}</span>
+    <span class="tag ${statusClass(p.status)}">${p.status}</span><span class="tag t-dyn">Dynasty</span></div></div>
+    <div class="cost-display"><div class="cost-round cr-dyn">R26</div><div class="cost-label">dynasty cost</div></div></div>
+    ${statsHTML}
+    <div class="card-bottom"><div class="contract-info">Contract: <strong>Dynasty (2050)</strong> · ADP ${p.adp.toFixed(1)}</div>${pickTag}</div>
+  </div>`;
+}
+
+function render(){
+  const showH=filterMode!=='pit',showP=filterMode!=='hit',actOnly=filterMode==='act';
+  if(dynastyPlayer)document.getElementById('dynasty-grid').innerHTML=dynastyCardHTML();
+  const prospH=prospectPlayers(allHitters),prospP=prospectPlayers(allPitchers);
+  let prospHTML='';
+  if(showH)prospHTML+=prospH.map(p=>prospectCard(p)).join('');
+  if(showP)prospHTML+=prospP.map(p=>prospectCard(p)).join('');
+  document.getElementById('prospects-grid').innerHTML=prospHTML;
+  const regH=regularPlayers(allHitters),regP=regularPlayers(allPitchers);
+  const fH=showH?(actOnly?regH.filter(p=>p.status==='Act'):regH):[];
+  const fP=showP?(actOnly?regP.filter(p=>p.status==='Act'):regP):[];
+  document.getElementById('h-header').style.display=showH?'':'none';
+  document.getElementById('hitters-grid').style.display=showH?'':'none';
+  document.getElementById('p-header').style.display=showP?'':'none';
+  document.getElementById('pitchers-grid').style.display=showP?'':'none';
+  document.getElementById('hitters-grid').innerHTML=fH.map(p=>keeperCard(p)).join('');
+  document.getElementById('pitchers-grid').innerHTML=fP.map(p=>keeperCard(p)).join('');
+  document.getElementById('kCount').textContent=selectedKeepers.size;
+  document.getElementById('pCount').textContent=selectedProspects.size;
+  document.getElementById('dCount').textContent=dynastyKept?1:0;
+  updateSummary();
+}
+
+function updateSummary(){
+  const allP=[...allHitters,...allPitchers];
+  const keepers=allP.filter(p=>selectedKeepers.has(p.id));
+  const prospects=allP.filter(p=>selectedProspects.has(p.id));
+  const pl=Object.keys(myPicks).length>0;
+  const buckets={};
+  // Sort by ADP ascending within each bucket (lowest ADP = best = earliest/most expensive pick)
+  keepers.forEach(p=>{const b=getBaseCost(p.contract);if(!buckets[b])buckets[b]=[];buckets[b].push(p);});
+  Object.keys(buckets).forEach(b=>{buckets[b].sort((a,b)=>a.adp-b.adp);});
+  const assignments=[];
+  Object.entries(buckets).forEach(([base,players])=>{
+    const b=parseInt(base);
+    if(b===26){
+      // 2031+ players escalate downward from R25 — R26 is reserved for dynasty
+      players.forEach((p,i)=>{assignments.push({player:p,round:25-i,isDynasty:false});});
+    } else {
+      // Lower buckets escalate upward
+      players.forEach((p,i)=>{assignments.push({player:p,round:b+i,isDynasty:false});});
+    }
+  });
+  // Dynasty always locks to R26
+  if(dynastyKept&&dynastyPlayer){assignments.push({player:dynastyPlayer,round:26,isDynasty:true});}
+  assignments.sort((a,b)=>a.round-b.round);
+  const sg=document.getElementById('summary-grid'),wDiv=document.getElementById('warnings');
+  if(!assignments.length&&!prospects.length){sg.innerHTML='<div class="summary-empty">Select players above to build your keeper list.</div>';wDiv.innerHTML='';return;}
+  const warnings=[];let html='';
+  assignments.forEach(({player,round,isDynasty})=>{
+    const hasPick=!!myPicks[round],pd=pickDetail[round],cc=colorClass(round);
+    if(pl&&!hasPick)warnings.push(`⚠ No Round ${round} pick for ${player.name}.`);
+    const cardClass=isDynasty?'s-card s-dyn':'s-card';
+    const roundLabel=isDynasty?`Round ${round} cost <span style="color:var(--dynasty);font-size:9px">👑 DYNASTY</span>`:`Round ${round} pick cost`;
+    html+=`<div class="${cardClass}"><div class="s-name">${player.name}</div>
+      <div class="s-round ${cc}">${roundLabel}</div>
+      <div class="s-pick-info">${pl?(hasPick?`✓ ${pd||'Pick owned'}`:`✗ No Rd ${round} pick`):'⚠ Enter picks to verify'}</div></div>`;
+  });
+  prospects.forEach(p=>{html+=`<div class="s-card s-prosp"><div class="s-name">${p.name}</div>
+    <div class="s-round" style="color:var(--prospect)">Free Prospect Keep</div>
+    <div class="s-pick-info" style="color:var(--prospect)">★ No pick cost</div></div>`;});
+  sg.innerHTML=html;
+  let wHtml='';
+  if(!pl&&assignments.length)wHtml+=`<div class="warn">⚠ No picks entered — go back to Setup to add your draft picks.</div>`;
+  warnings.forEach(w=>{wHtml+=`<div class="warn">${w}</div>`;});
+  if(pl&&!warnings.length&&(assignments.length||prospects.length))wHtml=`<div class="ok-msg">✓ All keeper costs are covered by picks you already own.</div>`;
+  wDiv.innerHTML=wHtml;
+}
+</script>
+</body>
+</html>
